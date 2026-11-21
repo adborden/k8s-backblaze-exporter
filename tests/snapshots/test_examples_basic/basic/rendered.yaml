@@ -82,7 +82,7 @@ spec:
         envFrom:
         - configMapRef:
             name: backblaze-exporter-config-cmbmg792k8
-        image: t0mmili/backblaze-prometheus-exporter:0.1.0
+        image: t0mmili/backblaze-prometheus-exporter:0.2.0
         livenessProbe:
           httpGet:
             path: /healthz
