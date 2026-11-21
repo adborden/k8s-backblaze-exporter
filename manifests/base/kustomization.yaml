@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: backblaze-exporter
+    includeSelectors: true
+
+resources:
+  - resources/serviceaccount.yaml
+  - resources/deployment.yaml
+  - resources/service.yaml
+  - resources/servicemonitor.yaml
+
+configMapGenerator:
+  - name: backblaze-exporter-config
+    envs:
+      - files/config.env
+    files:
+      - B2_BUCKETS_CONFIG=files/buckets.json
+
+images:
+  - name: t0mmili/backblaze-prometheus-exporter
+    newTag: 0.1.0

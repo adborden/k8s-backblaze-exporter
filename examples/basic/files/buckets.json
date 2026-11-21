@@ -1,0 +1,4 @@
+{
+  "my-backups": ["postgres", "etcd-snapshots"],
+  "my-archive": [""]
+}

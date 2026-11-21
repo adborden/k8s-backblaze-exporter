@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - https://github.com/adborden/k8s-backblaze-exporter.git/manifests/base?ref=main
+
+configMapGenerator:
+  - name: backblaze-exporter-config
+    behavior: merge
+    files:
+      - B2_BUCKETS_CONFIG=files/buckets.json
+
+# For illustration only. Use a secret manager (sealed-secrets, external-secrets,
+# SOPS, etc.) for real credentials rather than committing them.
+secretGenerator:
+  - name: backblaze-exporter-credentials
+    literals:
+      - application-key-id=REPLACE_ME
+      - application-key=REPLACE_ME

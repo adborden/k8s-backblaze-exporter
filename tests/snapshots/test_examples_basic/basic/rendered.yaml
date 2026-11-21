@@ -1,0 +1,157 @@
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+  name: backblaze-exporter
+  namespace: monitoring
+---
+apiVersion: v1
+data:
+  B2_BUCKETS_CONFIG: |
+    {
+      "my-backups": ["postgres", "etcd-snapshots"],
+      "my-archive": [""]
+    }
+  B2_FILES_LATEST_ONLY: "false"
+  LOG_LEVEL: INFO
+  METRICS_UPDATE_INTERVAL: "3600"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+  name: backblaze-exporter-config-cmbmg792k8
+  namespace: monitoring
+---
+apiVersion: v1
+data:
+  application-key: UkVQTEFDRV9NRQ==
+  application-key-id: UkVQTEFDRV9NRQ==
+kind: Secret
+metadata:
+  name: backblaze-exporter-credentials-2k4f7f7dg6
+  namespace: monitoring
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+  name: backblaze-exporter
+  namespace: monitoring
+spec:
+  ports:
+  - name: metrics
+    port: 52000
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    app.kubernetes.io/name: backblaze-exporter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+  name: backblaze-exporter
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backblaze-exporter
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backblaze-exporter
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: B2_APPLICATION_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: application-key-id
+              name: backblaze-exporter-credentials-2k4f7f7dg6
+        - name: B2_APPLICATION_KEY_FILE
+          value: /etc/backblaze-exporter/credentials/application-key
+        envFrom:
+        - configMapRef:
+            name: backblaze-exporter-config-cmbmg792k8
+        image: t0mmili/backblaze-prometheus-exporter:0.1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          periodSeconds: 30
+        name: exporter
+        ports:
+        - containerPort: 52000
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: metrics
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/backblaze-exporter/credentials
+          name: credentials
+          readOnly: true
+        - mountPath: /home/app/.gunicorn
+          name: scratch
+          subPath: .gunicorn
+        - mountPath: /dev/shm
+          name: shm
+      securityContext:
+        runAsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 100
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: backblaze-exporter
+      volumes:
+      - name: credentials
+        secret:
+          items:
+          - key: application-key
+            path: application-key
+          secretName: backblaze-exporter-credentials-2k4f7f7dg6
+      - emptyDir: {}
+        name: scratch
+      - emptyDir:
+          medium: Memory
+        name: shm
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+  name: backblaze-exporter
+  namespace: monitoring
+spec:
+  endpoints:
+  - interval: 60s
+    path: /metrics
+    port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backblaze-exporter

@@ -1,0 +1,11 @@
+[project]
+name = "k8s-backblaze-exporter"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Aaron D Borden", email = "adborden@a14n.net" }]
+requires-python = ">=3.14.0"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=9.2.0", "pytest-snapshot>=0.9.0"]

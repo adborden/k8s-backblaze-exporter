@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backblaze-exporter
+spec:
+  # The exporter runs a background collector that calls the B2 API.
+  # Keep a single replica to avoid duplicate API calls.
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    spec:
+      serviceAccountName: backblaze-exporter
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # The image's "app" user is not numeric, so set an explicit uid/gid.
+        runAsUser: 100
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: exporter
+          image: t0mmili/backblaze-prometheus-exporter
+          ports:
+            - name: metrics
+              containerPort: 52000
+              protocol: TCP
+          env:
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backblaze-exporter-credentials
+                  key: application-key-id
+            - name: B2_APPLICATION_KEY_FILE
+              value: /etc/backblaze-exporter/credentials/application-key
+          envFrom:
+            - configMapRef:
+                name: backblaze-exporter-config
+          volumeMounts:
+            - name: credentials
+              mountPath: /etc/backblaze-exporter/credentials
+              readOnly: true
+            - name: scratch
+              mountPath: /home/app/.gunicorn
+              subPath: .gunicorn
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: credentials
+          secret:
+            secretName: backblaze-exporter-credentials
+            items:
+              - key: application-key
+                path: application-key
+        - name: scratch
+          emptyDir: {}
+        - name: shm
+          emptyDir:
+            medium: Memory

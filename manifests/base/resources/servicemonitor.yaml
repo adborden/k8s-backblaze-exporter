@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backblaze-exporter
+  labels:
+    app.kubernetes.io/name: backblaze-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backblaze-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      # The exporter serves cached data that refreshes every
+      # METRICS_UPDATE_INTERVAL (default 3600s), so frequent scrapes add nothing.
+      interval: 60s
